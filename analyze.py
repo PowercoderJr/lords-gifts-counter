@@ -111,6 +111,8 @@ def main(args):
     senders = {}
     
     res, frame = cap.read()
+    if scaled_w != frame_w:
+        frame = cv2.resize(frame, (scaled_w, scaled_h))
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     if res:
         for f_roi_ltrb in first_rois_ltrb:
@@ -137,7 +139,7 @@ def main(args):
         frame_cap_time = time.time()
         if not res: break
         if scaled_w != frame_w:
-            frame = cv2.resize(frame, (scaled_w, scaled_h), cv2.INTER_AREA)
+            frame = cv2.resize(frame, (scaled_w, scaled_h))
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         value, t_ltrb, gift_roi = get_template_pos(frame_gray, roi_ltrb, tmpl_gift)
         if value > tm_threshold:
