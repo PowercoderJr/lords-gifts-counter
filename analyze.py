@@ -5,6 +5,7 @@ import cv2
 import pandas as pd
 import pytesseract as pt
 
+
 templates_folder = 'templates'
 rarity_folder = 'rarity'
 tmlp_gift_filename = 'gift.jpg'
@@ -20,26 +21,28 @@ ref_first_rois_ltrb = (
     (1125, 630, 1350, 685),
     (1125, 795, 1350, 850),
 )
-ref_roi_ltrb = (1125, 890, 1770, 1040)
+ref_roi_ltrb = (1125, 890, 1500, 1040)
 ref_right_border = 1770
 ref_rarity_offset = (-115, -55, 145, 0)
 
 
-def get_template_pos(frame, roi_ltrb, tmpl_gift):
+def get_template_pos(frame, roi_ltrb, tmpl):
     roi = frame[roi_ltrb[1]:roi_ltrb[3], roi_ltrb[0]:roi_ltrb[2]]
-    res = cv2.matchTemplate(roi, tmpl_gift, cv2.TM_CCOEFF_NORMED)
+    res = cv2.matchTemplate(roi, tmpl, cv2.TM_CCOEFF_NORMED)
     min_val, max_val, min_pos, max_pos = cv2.minMaxLoc(res)
     ltrb = (
         roi_ltrb[0] + max_pos[0],
         roi_ltrb[1] + max_pos[1],
-        roi_ltrb[0] + max_pos[0] + tmpl_gift.shape[1],
-        roi_ltrb[1] + max_pos[1] + tmpl_gift.shape[0],
+        roi_ltrb[0] + max_pos[0] + tmpl.shape[1],
+        roi_ltrb[1] + max_pos[1] + tmpl.shape[0],
     )
     return max_val, ltrb, roi
 
 
 def read_sender_name(frame, anchor_ltrb, right_border, margin):
     sender_fragment = frame[anchor_ltrb[1]-margin:anchor_ltrb[3]+margin, anchor_ltrb[2]:right_border]
+    ret, sender_fragment = cv2.threshold(sender_fragment, 127, 255, cv2.THRESH_BINARY_INV)
+    sender_fragment = cv2.blur(sender_fragment, (3, 3))
     sender = pt.image_to_string(sender_fragment, lang='eng', config=tesseract_config)[:-2]
     return sender, sender_fragment
 

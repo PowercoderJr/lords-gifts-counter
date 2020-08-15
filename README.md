@@ -1,6 +1,6 @@
 # Lords Mobile gifts counter
 
-Capture your gifts list on video, feed it to **analyze.py** and get structured info about from whom, how many and of what rarity gifts you got. Use `-dm 1` argument for better understanding what you should provide. You'll see 3 windows: _video_ - actually video but downscaled for convinience, _gift_roi_ - region where scrolled nicknames supposed to be, _sender_fragment_ - last recognized sender nickname.
+Capture your gifts list on video, feed it to **analyze.py** and get structured info about from whom, how many and of what rarity gifts you got. Use `-dm 1` argument for better understanding what you should provide. You'll see 3 windows: _video_ - actually video but downscaled for convinience, _gift_roi_ - region where scrolled nicknames supposed to be, _sender_fragment_ - last detected sender nickname.
 
 This script requires Tesseract OCR installed on your PC ([Windows](https://github.com/tesseract-ocr/tesseract/wiki#windows), [Linux](https://github.com/tesseract-ocr/tesseract/wiki), [Mac](https://github.com/tesseract-ocr/tesseract/wiki#macos)). Also don't forget to add it to PATH variable.
 
