@@ -42,6 +42,8 @@ def get_template_pos(frame, roi_ltrb, tmpl):
 def read_sender_name(frame, anchor_ltrb, right_border, margin):
     sender_fragment = frame[anchor_ltrb[1]-margin:anchor_ltrb[3]+margin, anchor_ltrb[2]:right_border]
     ret, sender_fragment = cv2.threshold(sender_fragment, 127, 255, cv2.THRESH_BINARY_INV)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    sender_fragment = cv2.morphologyEx(sender_fragment, cv2.MORPH_CLOSE, kernel)
     sender_fragment = cv2.blur(sender_fragment, (3, 3))
     sender = pt.image_to_string(sender_fragment, lang='eng', config=tesseract_config)[:-2]
     return sender, sender_fragment
@@ -109,7 +111,6 @@ def main(args):
     rarities, tmpl_rarity = load_rarity_templates(os.path.join(templates_folder, rarity_folder), scale)
 
     senders = {}
-    
     res, frame = cap.read()
     if scaled_w != frame_w:
         frame = cv2.resize(frame, (scaled_w, scaled_h))
@@ -160,7 +161,6 @@ def main(args):
             prev_top = t_ltrb[1]
 
         if args.demonstration_mode > 0:
-            #cv2.rectangle(frame, [lt[i] + roi_ltrb[i] for i in range(2)], [rb[i] + roi_ltrb[i] for i in range(2)], (0, 0, 200), 2)
             cv2.rectangle(frame, (t_ltrb[0], t_ltrb[1]), (t_ltrb[2], t_ltrb[3]), (0, 200, 0) if value > tm_threshold else (0, 0, 200), 2)
             new_w = 1000
             cv2.imshow('video', cv2.resize(frame, (new_w, int(new_w / scaled_w * scaled_h))))
@@ -189,7 +189,6 @@ def main(args):
     border_format = workbook.add_format({'bottom':1, 'top':1, 'left':1, 'right':1})
     worksheet.conditional_format(f'A{len(indices) + 2}:G{len(indices) + 2}', {'type': 'no_errors', 'format': border_format})
     writer.save()
-    #print(df)
 
 
 if __name__ == '__main__':

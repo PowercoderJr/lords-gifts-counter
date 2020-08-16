@@ -26,12 +26,12 @@ Based on in-game UI: russian, 2340x1080, 15.08.2020.
                             (1) - display video and roi at normal speed (Esc to stop),
                             (2) - display video and roi frame by frame (any key to move on, Esc to stop)
 
-## Screenshots
+## Illustrations
 
-### Detected nickname
+### Demo
 
-![detected_nickname](screenshots/detected_nickname.png)
+![demo](https://user-images.githubusercontent.com/25909264/90340978-6cea3200-e004-11ea-940f-040d48cac0f1.gif)
 
 ### Excel output
 
-![excel_output](screenshots/excel_output.png)
+![excel_output](https://user-images.githubusercontent.com/25909264/90341004-999e4980-e004-11ea-999b-acf31f3a81ac.png)
