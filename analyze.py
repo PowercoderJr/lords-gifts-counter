@@ -21,7 +21,7 @@ ref_first_rois_ltrb = (
     (1125, 630, 1350, 685),
     (1125, 795, 1350, 850),
 )
-ref_roi_ltrb = (1125, 890, 1500, 1040)
+ref_roi_ltrb = (1125, 890, 1350, 1040)
 ref_right_border = 1770
 ref_rarity_offset = (-115, -55, 145, 0)
 
@@ -41,7 +41,7 @@ def get_template_pos(frame, roi_ltrb, tmpl):
 
 def read_sender_name(frame, anchor_ltrb, right_border, margin):
     sender_fragment = frame[anchor_ltrb[1]-margin:anchor_ltrb[3]+margin, anchor_ltrb[2]:right_border]
-    ret, sender_fragment = cv2.threshold(sender_fragment, 127, 255, cv2.THRESH_BINARY_INV)
+    sender_fragment = cv2.threshold(sender_fragment, 127, 255, cv2.THRESH_BINARY_INV)[1]
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
     sender_fragment = cv2.morphologyEx(sender_fragment, cv2.MORPH_CLOSE, kernel)
     sender_fragment = cv2.blur(sender_fragment, (3, 3))
@@ -55,6 +55,7 @@ def load_rarity_templates(path, scale):
     rarities = []
     for filename in filenames:
         tmpl = cv2.imread(os.path.join(path, filename), cv2.IMREAD_GRAYSCALE)
+        tmpl = cv2.threshold(tmpl, 127, 255, cv2.THRESH_BINARY_INV)[1]
         rarity_name = filename[filename.find(' ')+1:filename.rfind('.')]
         rarities.append(rarity_name)
         if scale != 1:
@@ -66,8 +67,11 @@ def load_rarity_templates(path, scale):
 def get_rarity(frame, roi_ltrb, templates):
     rarity_max_val = 0
     rarity = ''
+    roi = frame[roi_ltrb[1]:roi_ltrb[3], roi_ltrb[0]:roi_ltrb[2]]
+    roi = cv2.threshold(roi, 127, 255, cv2.THRESH_BINARY_INV)[1]
     for r in templates:
-        value = get_template_pos(frame, roi_ltrb, templates[r])[0]
+        value = get_template_pos(roi, [0, 0, roi.shape[1], roi.shape[0]], templates[r])[0]
+        #print(f'    {r}: {value:.2f}')
         if value > rarity_max_val:
             rarity_max_val = value
             rarity = r
