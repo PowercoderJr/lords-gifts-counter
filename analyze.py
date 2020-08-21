@@ -1,29 +1,21 @@
 import os
 import time
+import json
 import argparse
 import cv2
 import pandas as pd
 import pytesseract as pt
 
 
+data_folder = 'data'
 templates_folder = 'templates'
 rarity_folder = 'rarity'
+offsets_filename = 'offsets.json'
 tmlp_gift_filename = 'gift.jpg'
 tesseract_config = '-c tessedit_char_whitelist=" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" --oem 3 --psm 7'
 output_sheet_name = 'Main'
 tm_threshold = 0.4
 sender_name_margin = 5
-
-ref_w = 2340
-ref_h = 1080
-ref_first_rois_ltrb = (
-    (1125, 460, 1350, 515),
-    (1125, 630, 1350, 685),
-    (1125, 795, 1350, 850),
-)
-ref_roi_ltrb = (1125, 890, 1350, 1040)
-ref_right_border = 1770
-ref_rarity_offset = (-115, -55, 145, 0)
 
 
 def get_template_pos(frame, roi_ltrb, tmpl):
@@ -68,51 +60,49 @@ def get_rarity(frame, roi_ltrb, templates):
     rarity_max_val = 0
     rarity = ''
     roi = frame[roi_ltrb[1]:roi_ltrb[3], roi_ltrb[0]:roi_ltrb[2]]
-    roi = cv2.threshold(roi, 127, 255, cv2.THRESH_BINARY_INV)[1]
+    roi_bin = cv2.threshold(roi, 127, 255, cv2.THRESH_BINARY_INV)[1]
     for r in templates:
-        value = get_template_pos(roi, [0, 0, roi.shape[1], roi.shape[0]], templates[r])[0]
+        value, ltrb, _ = get_template_pos(roi_bin, [0, 0, roi.shape[1], roi.shape[0]], templates[r])
         #print(f'    {r}: {value:.2f}')
         if value > rarity_max_val:
             rarity_max_val = value
             rarity = r
-    return rarity
+    return rarity, ltrb, roi
 
 
 def main(args):
     cap = cv2.VideoCapture(args.video_filename)
     frame_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     frame_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    resolution = f'{frame_w:.0f}x{frame_h:.0f}'
+    print(f'Read video {resolution}')
+    if not os.path.isdir(os.path.join(data_folder, resolution)):
+        print('Error: unsupported resolution')
+        print('Currently supported resolutions:')
+        for item in os.listdir(data_folder):
+            print(f'  {item}')
+        cap.release()
+        return
+
     fps = cap.get(cv2.CAP_PROP_FPS)
+    with open(os.path.join(data_folder, resolution, offsets_filename)) as json_file:
+        offsets = json.load(json_file)
     frame_dur = int(1000 / fps)
     #print(f'{int(frame_w)}x{int(frame_h)}, FPS: {fps:.2f}, DUR: {frame_dur:.2f}')
     scaled_w = int(frame_w * args.scale)
     scaled_h = int(frame_h * args.scale)
-    scale = scaled_h / ref_h
-    first_rois_ltrb = [(
-        int(scaled_w * ref_first_rois_ltrb[i][0] / ref_w),
-        int(scaled_h * ref_first_rois_ltrb[i][1] / ref_h),
-        int(scaled_w * ref_first_rois_ltrb[i][2] / ref_w),
-        int(scaled_h * ref_first_rois_ltrb[i][3] / ref_h),
-    ) for i in range(len(ref_first_rois_ltrb))]
-    roi_ltrb = (
-        int(scaled_w * ref_roi_ltrb[0] / ref_w),
-        int(scaled_h * ref_roi_ltrb[1] / ref_h),
-        int(scaled_w * ref_roi_ltrb[2] / ref_w),
-        int(scaled_h * ref_roi_ltrb[3] / ref_h),
-    )
-    right_border = int(scaled_w * ref_right_border / ref_w)
-    rarity_offset = (
-        int(scaled_w * ref_rarity_offset[0] / ref_w),
-        int(scaled_h * ref_rarity_offset[1] / ref_h),
-        int(scaled_w * ref_rarity_offset[2] / ref_w),
-        int(scaled_h * ref_rarity_offset[3] / ref_h),
-    )
+    first_rois_ltrb = [[int(args.scale * offsets['first_rois_ltrb'][i][j]) for j in range(4)] for i in range(len(offsets['first_rois_ltrb']))]
+    roi_ltrb = [int(args.scale * offsets['roi_ltrb'][j]) for j in range(4)]
+    right_border = int(args.scale * offsets['right_border'])
+    rarity_offset = [int(args.scale * offsets['rarity_offset'][j]) for j in range(4)]
 
-    tmpl_gift = cv2.imread(os.path.join(templates_folder, tmlp_gift_filename), cv2.IMREAD_GRAYSCALE)
-    if scaled_w != ref_w:
-        tmpl_gift = cv2.resize(tmpl_gift, tuple([int(x * scale)
+    tmpl_gift = cv2.imread(os.path.join(data_folder, resolution, templates_folder, tmlp_gift_filename), cv2.IMREAD_GRAYSCALE)
+    if scaled_w != frame_w:
+        tmpl_gift = cv2.resize(tmpl_gift, tuple([int(x * args.scale)
             for x in tmpl_gift.shape[1::-1]]), cv2.INTER_AREA)
-    rarities, tmpl_rarity = load_rarity_templates(os.path.join(templates_folder, rarity_folder), scale)
+    rarities, tmpl_rarity = load_rarity_templates(os.path.join(data_folder, resolution, templates_folder, rarity_folder), args.scale)
+    print('Data loaded successfully')
+    print()
 
     senders = {}
     res, frame = cap.read()
@@ -131,7 +121,7 @@ def main(args):
                     t_ltrb[0] + rarity_offset[2],
                     t_ltrb[1] + rarity_offset[3],
                 )
-                rarity = get_rarity(frame_gray, rarity_roi_ltrb, tmpl_rarity)
+                rarity, _, _ = get_rarity(frame_gray, rarity_roi_ltrb, tmpl_rarity)
                 if sender not in senders:
                     senders[sender] = {}
                 senders[sender][rarity] = 1 if rarity not in senders[sender] else senders[sender][rarity] + 1
@@ -157,7 +147,7 @@ def main(args):
                     t_ltrb[0] + rarity_offset[2],
                     t_ltrb[1] + rarity_offset[3],
                 )
-                rarity = get_rarity(frame_gray, rarity_roi_ltrb, tmpl_rarity)
+                rarity, _, rarity_roi = get_rarity(frame_gray, rarity_roi_ltrb, tmpl_rarity)
                 if sender not in senders:
                     senders[sender] = {}
                 senders[sender][rarity] = 1 if rarity not in senders[sender] else senders[sender][rarity] + 1
@@ -171,6 +161,7 @@ def main(args):
             key = cv2.waitKey(frame_dur)
             cv2.imshow('sender_fragment', sender_fragment)
             cv2.imshow('gift_roi', gift_roi)
+            cv2.imshow('rarity_roi', rarity_roi)
             proc_dur = int((time.time() - frame_cap_time) * 1000)
             key = cv2.waitKey(frame_dur - proc_dur if frame_dur > proc_dur else 1) if args.demonstration_mode == 1 else cv2.waitKey()
             if key & 0xFF == 27: break
@@ -193,6 +184,7 @@ def main(args):
     border_format = workbook.add_format({'bottom':1, 'top':1, 'left':1, 'right':1})
     worksheet.conditional_format(f'A{len(indices) + 2}:G{len(indices) + 2}', {'type': 'no_errors', 'format': border_format})
     writer.save()
+    cap.release()
 
 
 if __name__ == '__main__':
